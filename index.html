@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Relay Control Dashboard</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+      overflow: hidden;
+      padding: 20px;
+      margin: 0;
+    }
+    h1 {
+      text-align: center;
+      color: #ffffff;
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
+      text-shadow: 0 0 10px #ffffff66;
+    }
+    .card {
+      background: #ffffffcc;
+      padding: 25px 30px;
+      margin: 20px auto;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+      border-radius: 20px;
+      max-width: 600px;
+      transition: transform 0.3s ease-in-out;
+      position: relative;
+      z-index: 1;
+    }
+    .card:hover {
+      transform: scale(1.03);
+    }
+    .title {
+      font-size: 2em;
+      margin-bottom: 20px;
+      color: #2c3e50;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .value {
+      font-size: 1.4em;
+      font-weight: bold;
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    .value.blue {
+      color: #fff;
+      background-color: #007bff;
+    }
+    .value.green {
+      color: #fff;
+      background-color: #28a745;
+    }
+    .value.red {
+      color: #fff;
+      background-color: #dc3545;
+    }
+    .button-container {
+      display: flex;
+      justify-content: center;
+      gap: 25px;
+      margin-top: 10px;
+    }
+    .relay-button {
+      font-size: 1.1em;
+      padding: 12px 30px;
+      border: none;
+      border-radius: 12px;
+      color: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    .relay-button:hover {
+      transform: translateY(-3px);
+    }
+    .relay-on {
+      background: linear-gradient(to right, #56ab2f, #a8e063);
+    }
+    .relay-off {
+      background: linear-gradient(to right, #e52d27, #b31217);
+    }
+    .lightning {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      background: rgba(255, 255, 255, 0.08);
+      animation: lightningFlash 10s infinite;
+    }
+    @keyframes lightningFlash {
+      0%, 100% {
+        opacity: 0;
+      }
+      3% {
+        opacity: 0.7;
+      }
+      4% {
+        opacity: 0;
+      }
+      12% {
+        opacity: 0.4;
+      }
+      13% {
+        opacity: 0;
+      }
+    }
+    .flex-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .current-block, .fault-block {
+      width: 48%;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="lightning"></div>
+
+  <h1>Lamp Control Dashboard</h1>
+
+  <div class="card">
+    <div class="title">Lamp 1</div>
+    <div class="button-container">
+      <button class="relay-button relay-on" onclick="setRelay('relay1', true)">Turn ON</button>
+      <button class="relay-button relay-off" onclick="setRelay('relay1', false)">Turn OFF</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">Lamp 2</div>
+    <div class="button-container">
+      <button class="relay-button relay-on" onclick="setRelay('relay2', true)">Turn ON</button>
+      <button class="relay-button relay-off" onclick="setRelay('relay2', false)">Turn OFF</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">Current Readings</div>
+    <div class="flex-row">
+      <div class="current-block">Lamp 1 Current: <span id="current1" class="value blue">0.00</span> A</div>
+      <div class="fault-block">Lamp 1 Fault: <span id="fault1" class="value red">-</span></div>
+    </div>
+    <div class="flex-row">
+      <div class="current-block">Lamp 2 Current: <span id="current2" class="value green">0.00</span> A</div>
+      <div class="fault-block">Lamp 2 Fault: <span id="fault2" class="value red">-</span></div>
+    </div>
+  </div>
+
+  <!-- Firebase JS SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAC3prb7gFz2QghusuVEeHg5O65y2po9UU",
+      authDomain: "street-light-eff75.firebaseapp.com",
+      databaseURL: "https://street-light-eff75-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "street-light-eff75",
+      storageBucket: "street-light-eff75.appspot.com",
+      messagingSenderId: "502364179896",
+      appId: "1:502364179896:web:40dbedf1c35c7fd226d34d",
+      measurementId: "G-DM4E9VHDRG"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Fetch and update values
+    async function fetchData() {
+      try {
+        const snapshot = await db.ref("/device").get();
+        const data = snapshot.val();
+
+        document.getElementById("current1").textContent = data.current1.toFixed(2);
+        document.getElementById("current2").textContent = data.current2.toFixed(2);
+        document.getElementById("fault1").textContent = data.fault1 ? "FAULT" : "OK";
+        document.getElementById("fault2").textContent = data.fault2 ? "FAULT" : "OK";
+        document.getElementById("fault1").className = "value " + (data.fault1 ? "red" : "green");
+        document.getElementById("fault2").className = "value " + (data.fault2 ? "red" : "green");
+      } catch (error) {
+        console.log("Could not fetch data:", error);
+      }
+    }
+
+    async function setRelay(relay, state) {
+      await db.ref("/device/" + relay).set(state);
+    }
+
+    setInterval(fetchData, 3000);
+    fetchData();
+  </script>
+</body>
+</html>
